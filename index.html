@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>これがホントのちらし寿司</title>
+<style>
+  body {
+  background:
+    repeating-linear-gradient(
+      45deg,
+      #fff8ee,
+      #fff8ee 20px,
+      #fff4e0 20px,
+      #fff4e0 40px
+    );
+    font-family:sans-serif;
+    text-align:center;
+    margin:0;
+  }
+
+  h2 {
+    font-size:14px;
+    margin-top:20px;
+    color:#666;
+  }
+  h1 {
+    margin:5px 0 20px;
+  }
+
+  .container {
+    display:flex;
+    justify-content:center;
+    gap:40px;
+    padding:0 10px;
+  }
+
+  .board-wrapper {
+    position:relative;
+  }
+
+  .label {
+    margin-bottom:6px;
+    font-size:14px;
+    color:#555;
+  }
+
+  :root {
+    --cell-size: 80px;
+  }
+
+  .board {
+    display:grid;
+    grid-template-columns:repeat(3, var(--cell-size));
+    gap:6px;
+    padding:12px;
+    border-radius:12px;
+  }
+
+  .sample {
+    background:#f3e3c3;
+    border:6px solid #c9a063;
+    box-shadow:inset 0 0 10px rgba(0,0,0,0.15);
+  }
+
+  .play {
+    background:#ffffff;
+    border:3px solid #ccc;
+  }
+
+  .cell {
+    width:var(--cell-size);
+    height:var(--cell-size);
+    background:#fff;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    cursor:pointer;
+    user-select:none;
+    touch-action:manipulation;
+  }
+
+  .cell img {
+    width:100%;
+    height:100%;
+    object-fit:contain;
+    pointer-events:none;
+  }
+
+  .empty {
+    background:#ddd;
+    cursor:default;
+  }
+
+  .play .cell:hover:not(.empty) {
+    transform:scale(1.05);
+    transition:0.1s;
+  }
+
+  #clear {
+    display:none;
+    margin:36px 0;
+  }
+
+  #clear h1 {
+    font-size:44px;
+    animation:pop 0.6s ease-out;
+  }
+
+  @keyframes pop {
+    0% { transform:scale(0.6); opacity:0; }
+    80% { transform:scale(1.1); }
+    100% { transform:scale(1); opacity:1; }
+  }
+
+  button {
+    margin-top:18px;
+    padding:14px 30px;
+    font-size:18px;
+    cursor:pointer;
+  }
+
+  @media (max-width: 700px) {
+    .container {
+      flex-direction:column;
+      align-items:center;
+      gap:24px;
+    }
+
+    :root {
+      --cell-size: 64px;
+    }
+
+    #clear h1 {
+      font-size:36px;
+    }
+  }
+</style>
+</head>
+<body>
+
+<h2>寿司のスライドパズル</h2>
+<h1>これがホントのちらし寿司</h1>
+
+<div class="container">
+  <div class="board-wrapper">
+    <div class="label">完成見本（寿司桶）</div>
+    <div id="left" class="board sample"></div>
+  </div>
+
+  <div class="board-wrapper">
+    <div class="label">盛り付け中（動かしてね）</div>
+    <div id="right" class="board play"></div>
+  </div>
+</div>
+
+<div id="clear">
+  <h1>完成ですし！🎉</h1>
+  <button onclick="init()">もう一度盛り付ける</button>
+</div>
+
+<audio id="clearSE" src="pafupafu.mp3"></audio>
+<audio id="bgm" src="BGM.mp3" loop></audio>
+
+<script>
+const sushiImages = ["1.png","2.png","3.png","4.png"];
+const size = 3;
+const total = size * size;
+
+let goal = [];
+let board = [];
+let cleared = false;
+
+const clearSE = document.getElementById("clearSE");
+clearSE.volume = 0.4;
+const bgm = document.getElementById("bgm");
+
+bgm.volume = 0.3;
+window.addEventListener("click", () => {
+  if (bgm.paused) bgm.play();
+}, { once:true });
+
+function playSlideSE() {
+  const se = new Audio("slide.mp3");
+  se.volume = 0.8;
+  se.play();
+}
+
+function shuffle(arr) {
+  return arr.sort(() => Math.random() - 0.5);
+}
+
+function init() {
+  cleared = false;
+  document.getElementById("clear").style.display = "none";
+
+  goal = [];
+  for (let i = 0; i < total - 1; i++) {
+    goal.push(sushiImages[Math.floor(Math.random()*sushiImages.length)]);
+  }
+  goal.push(null);
+  goal = shuffle(goal);
+
+  board = shuffle([...goal]);
+  render();
+}
+
+function render() {
+  const left = document.getElementById("left");
+  const right = document.getElementById("right");
+  left.innerHTML = "";
+  right.innerHTML = "";
+
+  goal.forEach(s => left.appendChild(createCell(s)));
+  board.forEach((s,i) => {
+    const cell = createCell(s);
+    cell.onclick = () => move(i);
+    right.appendChild(cell);
+  });
+}
+
+function createCell(sushi) {
+  const d = document.createElement("div");
+  d.className = "cell" + (sushi === null ? " empty" : "");
+  if (sushi) {
+    const img = document.createElement("img");
+    img.src = sushi;
+    d.appendChild(img);
+  }
+  return d;
+}
+
+function canMoveTile(i, empty) {
+  const row = Math.floor(i / size);
+  const emptyRow = Math.floor(empty / size);
+
+  if (row === emptyRow && Math.abs(i - empty) === 1) return true;
+  if (Math.abs(i - empty) === size) return true;
+
+  return false;
+}
+
+function move(i) {
+  if (cleared) return;
+
+  const empty = board.indexOf(null);
+  if (!canMoveTile(i, empty)) return;
+
+  [board[i], board[empty]] = [board[empty], board[i]];
+  playSlideSE();
+  render();
+
+  if (isClear()) {
+    cleared = true;
+    clearSE.play();
+    document.getElementById("clear").style.display = "block";
+  }
+}
+
+function isClear() {
+  for (let i=0;i<total;i++) {
+    if (board[i] !== goal[i]) return false;
+  }
+  return true;
+}
+
+init();
+</script>
+</body>
+</html>

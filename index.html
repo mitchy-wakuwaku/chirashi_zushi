@@ -172,17 +172,17 @@ let board = [];
 let cleared = false;
 
 const clearSE = document.getElementById("clearSE");
-clearSE.volume = 0.4;
+clearSE.volume = 0.2;
 const bgm = document.getElementById("bgm");
 
-bgm.volume = 0.3;
+bgm.volume = 0.2;
 window.addEventListener("click", () => {
   if (bgm.paused) bgm.play();
 }, { once:true });
 
 function playSlideSE() {
   const se = new Audio("slide.mp3");
-  se.volume = 0.8;
+  se.volume = 0.6;
   se.play();
 }
 

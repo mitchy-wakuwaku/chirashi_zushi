@@ -6,14 +6,14 @@
 <title>これがホントのちらし寿司</title>
 <style>
   body {
-  background:
-    repeating-linear-gradient(
-      45deg,
-      #fff8ee,
-      #fff8ee 20px,
-      #fff4e0 20px,
-      #fff4e0 40px
-    );
+    background:
+      repeating-linear-gradient(
+        45deg,
+        #fff8ee,
+        #fff8ee 20px,
+        #fff4e0 20px,
+        #fff4e0 40px
+      );
     font-family:sans-serif;
     text-align:center;
     margin:0;
@@ -63,10 +63,11 @@
     box-shadow:inset 0 0 10px rgba(0,0,0,0.15);
   }
 
-  .play {
-    background:#ffffff;
-    border:3px solid #ccc;
-  }
+.play {
+  background:#f9f9f9;              /* 少しだけ色味をつける */
+  border:6px solid #ddd;            /* sampleと太さを揃える */
+  box-shadow:inset 0 0 8px rgba(0,0,0,0.1);
+}
 
   .cell {
     width:var(--cell-size);
@@ -103,7 +104,7 @@
   }
 
   #clear h1 {
-    font-size:44px;
+    font-size:36px;
     animation:pop 0.6s ease-out;
   }
 
@@ -132,9 +133,43 @@
     }
 
     #clear h1 {
-      font-size:36px;
+      font-size:32px;
     }
   }
+  
+.cheer {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  background: #fff;
+  border: 3px solid #333;
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-size: 14px;
+  font-weight: bold;
+  box-shadow: 2px 2px 0 #333;
+  pointer-events: none;
+  z-index: 999;
+
+  display: none; /* ← 超重要 */
+}
+
+@keyframes cheerPop {
+  0% {
+    transform: scale(0.8);
+    opacity: 0;
+  }
+  20% {
+    transform: scale(1.05);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;   /* ← ここが重要 */
+  }
+}
+
+
 </style>
 </head>
 <body>
@@ -148,10 +183,12 @@
     <div id="left" class="board sample"></div>
   </div>
 
-  <div class="board-wrapper">
-    <div class="label">盛り付け中（動かしてね）</div>
-    <div id="right" class="board play"></div>
-  </div>
+<div class="board-wrapper">
+  <div class="label" id="guide">盛り付け中（動かしてね）</div>
+  <div class="cheer" id="cheer"></div>
+  <div id="right" class="board play"></div>
+</div>
+
 </div>
 
 <div id="clear">
@@ -163,28 +200,42 @@
 <audio id="bgm" src="BGM.mp3" loop></audio>
 
 <script>
-const sushiImages = ["1.png","2.png","3.png","4.png"];
+const cheerMessages = [
+  "そうきたか！",
+  "いいちらし具合だ！",
+  "応援してるぞ！",
+  "ナイス寿司！"
+];
+const sushiImages = ["1.png","2.png","3.png","4.png","5.png"];
 const size = 3;
 const total = size * size;
 
 let goal = [];
 let board = [];
 let cleared = false;
+let moveCount = 0;
 
 const clearSE = document.getElementById("clearSE");
 clearSE.volume = 0.2;
-const bgm = document.getElementById("bgm");
 
+const bgm = document.getElementById("bgm");
 bgm.volume = 0.2;
+
+/* ★ 修正ポイント①：slideSE を1回だけ生成 */
+const slideSE = new Audio("slide.mp3");
+slideSE.volume = 0.6;
+
+/* iOS音声解禁（BGM + SE） */
 window.addEventListener("click", () => {
   if (bgm.paused) bgm.play();
-}, { once:true });
+ }, { once:true });
 
 function playSlideSE() {
-  const se = new Audio("slide.mp3");
-  se.volume = 0.6;
-  se.play();
+  slideSE.pause();          // ★ これが超重要
+  slideSE.currentTime = 0;
+  slideSE.play().catch(() => {});
 }
+
 
 function shuffle(arr) {
   return arr.sort(() => Math.random() - 0.5);
@@ -240,14 +291,50 @@ function canMoveTile(i, empty) {
   return false;
 }
 
+let cheerTimer = null;
+
+function showCheer() {
+  const cheer = document.getElementById("cheer");
+  const msg = cheerMessages[Math.floor(Math.random() * cheerMessages.length)];
+
+  // タイマーが残ってたら消す
+  if (cheerTimer) {
+    clearTimeout(cheerTimer);
+    cheerTimer = null;
+  }
+
+  cheer.textContent = "🗯️ " + msg;
+  cheer.style.display = "block";
+
+  // アニメーションを毎回セット
+  cheer.style.animation = "none";
+  cheer.offsetHeight; // 再描画
+  cheer.style.animation = "cheerPop 1s ease-out";
+
+  cheerTimer = setTimeout(() => {
+    cheer.style.display = "none";
+    cheerTimer = null;
+  }, 1500);
+}
+
+
 function move(i) {
   if (cleared) return;
 
   const empty = board.indexOf(null);
   if (!canMoveTile(i, empty)) return;
 
-  [board[i], board[empty]] = [board[empty], board[i]];
   playSlideSE();
+  moveCount++;
+
+  // ★ 先に盤面を動かす
+  [board[i], board[empty]] = [board[empty], board[i]];
+
+  // ★ クリアじゃない & 3回に1回だけ出す
+  if (!isClear() && moveCount % 3 === 0) {
+    showCheer();
+  }
+
   render();
 
   if (isClear()) {
@@ -256,6 +343,7 @@ function move(i) {
     document.getElementById("clear").style.display = "block";
   }
 }
+
 
 function isClear() {
   for (let i=0;i<total;i++) {
